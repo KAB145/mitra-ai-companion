@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mitra - AI Companion</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="avatar">
+                <div class="online-indicator"></div>
+            </div>
+            <div class="header-info">
+                <h2>Mitra</h2>
+                <p>Your Empathetic Companion</p>
+            </div>
+        </div>
+
+        <div id="chat-box" class="chat-box">
+            <div class="message bot" style="opacity: 1; transform: translateY(0);">
+                <p>Hi there! Mitra here. What's on your mind today? 😊</p>
+            </div>
+        </div>
+
+        <div class="input-area">
+            <input type="text" id="user-input" placeholder="Type your message..." onkeypress="handleKeyPress(event)" />
+            <button onclick="sendMessage()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M2.01 21L23 12L2.01 3L2 10L17 12L2 14L2.01 21Z" fill="white"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+<script>
+async function sendMessage() {
+    const input = document.getElementById("user-input");
+    const message = input.value.trim();
+    if (!message) return;
+
+    addMessage("You", message, "user");
+    input.value = "";
+
+    
+    const typingId = showTypingIndicator();
+    
+    
+    scrollToBottom();
+
+    try {
+        const res = await fetch("/chat", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({message})
+        });
+
+        const data = await res.json();
+        removeTypingIndicator(typingId);
+        addMessage("Bot", data.response, "bot");
+    } catch (error) {
+        removeTypingIndicator(typingId);
+        addMessage("Bot", "Oops, I'm having trouble connecting. Let's try again in a bit.", "bot");
+    }
+}
+
+function handleKeyPress(e) {
+    if (e.key === "Enter") {
+        sendMessage();
+    }
+}
+
+function addMessage(sender, text, type) {
+    const box = document.getElementById("chat-box");
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `message ${type}`;
+    msgDiv.innerHTML = `<p>${text}</p>`;
+    box.appendChild(msgDiv);
+    
+    
+    setTimeout(() => {
+        msgDiv.style.opacity = 1;
+        msgDiv.style.transform = "translateY(0)";
+    }, 20);
+    
+    scrollToBottom();
+}
+
+function showTypingIndicator() {
+    const box = document.getElementById("chat-box");
+    const id = "typing-" + Date.now();
+    const typingHTML = `
+        <div id="${id}" class="message bot typing-indicator" style="opacity: 1; transform: translateY(0);">
+            <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        </div>
+    `;
+    box.insertAdjacentHTML('beforeend', typingHTML);
+    return id;
+}
+
+function removeTypingIndicator(id) {
+    const el = document.getElementById(id);
+    if (el) el.remove();
+}
+
+function scrollToBottom() {
+    const box = document.getElementById("chat-box");
+    box.scrollTo({
+        top: box.scrollHeight,
+        behavior: 'smooth'
+    });
+}
+</script>
+
+</body>
+</html>
