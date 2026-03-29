@@ -1,4 +1,16 @@
 from textblob import TextBlob
+from transformers import pipeline
+
+# Load emotion model once
+try:
+    emotion_classifier = pipeline(
+        "text-classification",
+        model="j-hartmann/emotion-english-distilroberta-base",
+        top_k=1
+    )
+except:
+    emotion_classifier = None
+
 
 def detect_sentiment(text):
     analysis = TextBlob(text)
@@ -11,23 +23,15 @@ def detect_sentiment(text):
     else:
         return "neutral"
 
+
 def detect_emotion_keywords(text):
     text = text.lower()
 
-    # Negated emotions
-    if any(phrase in text for phrase in ["not happy", "not great", "not feeling good", "never happy", "can't smile", "no joy"]):
-        return "sad"
-    if any(phrase in text for phrase in ["not sad", "not lonely", "not bored", "feel better", "not bad"]):
-        return "happy"
-    if any(phrase in text for phrase in ["not stressed", "relaxed", "calm down", "no worries"]):
-        return "happy"
-
-    # Direct keywords
-    sad_words = ["sad", "lonely", "depressed", "tired", "down", "upset", "miserable", "crying", "heartbroken", "hopeless", "tear", "hurt", "empty"]
-    happy_words = ["happy", "excited", "great", "awesome", "good", "glad", "joy", "amazing", "wonderful", "smiling", "love", "proud"]
-    stressed_words = ["stressed", "anxious", "worried", "panic", "overwhelmed", "tense", "nervous", "pressure", "too much", "scared", "fear"]
-    angry_words = ["angry", "mad", "furious", "annoyed", "frustrated", "hate", "irritating", "pissed", "rage"]
-    bored_words = ["bored", "nothing to do", "uninterested", "dull", "yawn", "boring"]
+    sad_words = ["sad", "lonely", "depressed", "down", "hopeless", "hurt", "empty"]
+    happy_words = ["happy", "excited", "great", "good", "joy", "love"]
+    stressed_words = ["stressed", "anxious", "worried", "overwhelmed", "pressure"]
+    angry_words = ["angry", "mad", "frustrated", "annoyed"]
+    bored_words = ["bored", "dull", "nothing to do"]
 
     if any(word in text for word in sad_words):
         return "sad"
@@ -39,13 +43,48 @@ def detect_emotion_keywords(text):
         return "happy"
     elif any(word in text for word in bored_words):
         return "bored"
-        
-    # Fallback to sentiment if we couldn't detect an explicit emotion word
+
+    return "unknown"
+
+
+def detect_emotion(text):
+    """
+    Main emotion detection function (use THIS in app.py instead of detect_emotion_keywords)
+    """
+
+    # 🧠 1. Try AI model
+    if emotion_classifier:
+        try:
+            result = emotion_classifier(text)[0]
+            label = result['label'].lower()
+
+            # Normalize labels
+            if label in ["sadness"]:
+                return "sad"
+            elif label in ["joy"]:
+                return "happy"
+            elif label in ["anger"]:
+                return "angry"
+            elif label in ["fear"]:
+                return "stressed"
+            elif label in ["surprise"]:
+                return "surprised"
+
+            return label
+        except:
+            pass  # fallback below
+
+    # 🔁 2. Fallback to keyword detection
+    keyword_emotion = detect_emotion_keywords(text)
+    if keyword_emotion != "unknown":
+        return keyword_emotion
+
+    # 📊 3. Final fallback → sentiment
     sentiment = detect_sentiment(text)
+
     if sentiment == "negative":
-        # If no explicit negative emotion but the tone is negative, assume lightly stressed or sad
         return "sad"
     elif sentiment == "positive":
         return "happy"
 
-    return "unknown"
+    return "neutral"
