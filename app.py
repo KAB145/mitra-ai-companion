@@ -7,8 +7,13 @@ from safety import check_crisis, crisis_response
 
 app = Flask(__name__)
 
-# Initialize database
+# Initialize DB
 init_db()
+
+
+def is_emotional(text):
+    keywords = ["sad", "tired", "upset", "depressed", "not feeling well", "angry", "stressed"]
+    return any(k in text.lower() for k in keywords)
 
 
 @app.route("/")
@@ -20,35 +25,40 @@ def home():
 def chat():
     user_input = request.json.get("message", "").strip()
 
-    # Handle empty input
     if not user_input:
-        return jsonify({"response": "I'm here whenever you're ready to talk 😊"})
+        return jsonify({"response": "I'm here whenever you're ready 😊"})
 
-    #  Safety check (highest priority)
+    #  Safety first
     if check_crisis(user_input):
         response = crisis_response()
         save_message(user_input, response)
         return jsonify({"response": response})
 
-    #  Emotion + sentiment detection (UPGRADED)
+    #  Emotion detection
     sentiment = detect_sentiment(user_input)
     emotion = detect_emotion(user_input)
 
-    #  Get conversation memory
-    memory = get_last_messages()
+    #  Smart memory usage
+    if is_emotional(user_input):
+        memory = []
+    else:
+        memory = get_last_messages(limit=5, include_bot=True)
 
     #  Generate response
-    response = generate_response(sentiment, emotion, user_input, memory)
+    response = generate_response(user_input, emotion, sentiment, memory)
 
-    #  Save conversation
+    # 💾 Save
     save_message(user_input, response)
 
     return jsonify({
         "response": response,
-        "emotion": emotion,       # optional (useful for frontend/mood tracking)
-        "sentiment": sentiment    # optional
+        "emotion": emotion,
+        "sentiment": sentiment
     })
 
 
 if __name__ == "__main__":
     app.run(debug=True)
+
+    #trigger
+    
